@@ -1,0 +1,111 @@
+import React, { useEffect, useState } from "react";
+
+export default function GroceryListApp() {
+  // Default items based on your recipe + supplies
+  const defaultItems = [
+    { id: "butter", text: "Unsalted butter (120 g)", checked: false, category: "Baking" },
+    { id: "kinder", text: "Kinder Chocolate", checked: false, category: "Chocolate" },
+    { id: "parchment", text: "Parchment paper", checked: false, category: "Supplies" },
+    { id: "ziplock", text: "Small Ziplock bags", checked: false, category: "Supplies" },
+  ];
+
+  const [items, setItems] = useState(() => {
+    const raw = typeof window !== "undefined" && localStorage.getItem("groceryList");
+    return raw ? JSON.parse(raw) : defaultItems;
+  });
+  const [newItem, setNewItem] = useState("");
+  const [hideChecked, setHideChecked] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("groceryList", JSON.stringify(items));
+    } catch {}
+  }, [items]);
+
+  const addItem = () => {
+    const t = newItem.trim();
+    if (!t) return;
+    setItems(prev => [
+      ...prev,
+      { id: Date.now().toString(36), text: t, checked: false, category: "" },
+    ]);
+    setNewItem("");
+  };
+
+  const toggleItem = (id) => setItems(prev => prev.map(i => i.id === id ? { ...i, checked: !i.checked } : i));
+  const clearChecked = () => setItems(prev => prev.filter(i => !i.checked));
+  const reset = () => setItems(defaultItems);
+
+  const remaining = items.filter(i => !i.checked).length;
+  const displayed = hideChecked ? items.filter(i => !i.checked) : items;
+
+  // Group by category (simple client-side grouping)
+  const groups = displayed.reduce((acc, item) => {
+    const key = item.category || "Other";
+    (acc[key] ||= []).push(item);
+    return acc;
+  }, {} as Record<string, typeof items>);
+
+  return (
+    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+      <div className="max-w-md mx-auto p-4">
+        <header className="mb-3">
+          <h1 className="text-2xl font-bold">Grocery List</h1>
+          <p className="text-sm text-neutral-600">{items.length - remaining} checked • {remaining} to go</p>
+        </header>
+
+        <div className="flex gap-2 mb-4">
+          <input
+            className="flex-1 rounded-xl border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-neutral-400"
+            placeholder="Add an item…"
+            value={newItem}
+            onChange={e => setNewItem(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addItem(); }}
+            inputMode="text"
+          />
+          <button
+            className="rounded-xl px-4 py-2 border border-neutral-300 bg-white active:scale-95"
+            onClick={addItem}
+            aria-label="Add item"
+          >Add</button>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          <button className="rounded-full px-3 py-1 text-sm border border-neutral-300 bg-white" onClick={() => setHideChecked(v => !v)}>
+            {hideChecked ? 'Show checked' : 'Hide checked'}
+          </button>
+          <button className="rounded-full px-3 py-1 text-sm border border-neutral-300 bg-white" onClick={clearChecked}>
+            Clear checked
+          </button>
+          <button className="rounded-full px-3 py-1 text-sm border border-neutral-300 bg-white" onClick={reset}>
+            Reset
+          </button>
+        </div>
+
+        {Object.entries(groups).map(([cat, itms]) => (
+          <section key={cat} className="mb-4">
+            {cat !== 'Other' && (
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-2">{cat}</h2>
+            )}
+            <ul className="space-y-2">
+              {itms.map(i => (
+                <li key={i.id} className="flex items-center gap-3 bg-white rounded-xl shadow-sm border border-neutral-200 p-3">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 rounded"
+                    checked={i.checked}
+                    onChange={() => toggleItem(i.id)}
+                    aria-label={`Mark ${i.text} ${i.checked ? 'not done' : 'done'}`}
+                  />
+                  <span className={"flex-1 text-base " + (i.checked ? "line-through text-neutral-400" : "")}>{i.text}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+
+        <p className="text-xs text-neutral-500 mt-8">Tip: Your list auto-saves on this device. Use “Reset” to restore the default four items.</p>
+      </div>
+    </div>
+  );
+}
