@@ -1,131 +1,257 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Grocery List (React)</title>
-  <style>
-    :root{ --bg:#fafafa; --card:#fff; --text:#111; --muted:#6b7280; --border:#e5e7eb; }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--text)}
-    .wrap{max-width:680px;margin:0 auto;padding:16px}
-    header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:4px 0 12px}
-    h1{font-size:22px;margin:0}
-    .muted{color:var(--muted);font-size:12px}
-    .controls{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
-    button,input[type="text"]{border:1px solid var(--border);border-radius:12px;background:var(--card);padding:10px 12px;font-size:16px}
-    button{cursor:pointer} button:active{transform:scale(.98)}
-    input[type="text"]{flex:1;min-width:160px}
-    .chip{border-radius:999px;padding:6px 10px;font-size:13px}
-    section{margin-bottom:12px}
-    h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:10px 2px}
-    ul{list-style:none;padding:0;margin:0}
-    li{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:8px}
-    input[type="checkbox"]{width:22px;height:22px}
-    .item-text{flex:1;font-size:16px}
-    .done{color:#9ca3af;text-decoration:line-through}
-    .footer{margin-top:18px;font-size:12px;color:var(--muted)}
-  </style>
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Trash2, Edit3, Check, X, Share2, Download, Upload, Search, Filter } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
-  <!-- React + ReactDOM via CDN, and Babel so the browser can run JSX -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-</head>
-<body>
-  <div id="root"></div>
+export default function GroceryListApp() {
+  // ---- Config ----
+  const STORAGE_KEY = "groceryList_v2";
+  const DEFAULT_ITEMS = [
+    { id: "butter", text: "Unsalted butter (120 g)", checked: false, category: "Baking", qty: 1 },
+    { id: "kinder", text: "Kinder Chocolate", checked: false, category: "Chocolate", qty: 1 },
+    { id: "parchment", text: "Parchment paper", checked: false, category: "Supplies", qty: 1 },
+    { id: "ziplock", text: "Small Ziplock bags", checked: false, category: "Supplies", qty: 1 },
+  ];
+  const CATEGORIES = ["All", "Baking", "Produce", "Dairy", "Meat", "Pantry", "Chocolate", "Supplies", "Other"];
 
-  <script type="text/babel">
-    const { useState, useEffect } = React;
-    const STORAGE_KEY = "groceryList_v1";
+  // ---- State ----
+  const [items, setItems] = useState(() => {
+    try {
+      const rawV2 = localStorage.getItem(STORAGE_KEY);
+      if (rawV2) return JSON.parse(rawV2);
+      // migrate from v1 if present
+      const rawV1 = localStorage.getItem("groceryList_v1") || localStorage.getItem("groceryList");
+      if (rawV1) {
+        const v1 = JSON.parse(rawV1).map((i) => ({
+          id: i.id || crypto.randomUUID(),
+          text: i.text,
+          checked: !!i.checked || !!i.done,
+          category: i.category || "Other",
+          qty: i.qty || 1,
+        }));
+        return v1;
+      }
+    } catch {}
+    return DEFAULT_ITEMS;
+  });
+  const [text, setText] = useState("");
+  const [qty, setQty] = useState(1);
+  const [category, setCategory] = useState("Other");
+  const [hideChecked, setHideChecked] = useState(false);
+  const [q, setQ] = useState("");
+  const [catFilter, setCatFilter] = useState("All");
+  const [editingId, setEditingId] = useState(null as string | null);
 
-    const DEFAULT_ITEMS = [
-      { id: "butter", text: "Unsalted butter (120 g)", checked: false, category: "Baking" },
-      { id: "kinder", text: "Kinder Chocolate", checked: false, category: "Chocolate" },
-      { id: "parchment", text: "Parchment paper", checked: false, category: "Supplies" },
-      { id: "ziplock", text: "Small Ziplock bags", checked: false, category: "Supplies" },
-    ];
+  const inputRef = useRef<HTMLInputElement>(null);
 
-    function App() {
-      const [items, setItems] = useState(() => {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          return raw ? JSON.parse(raw) : DEFAULT_ITEMS;
-        } catch { return DEFAULT_ITEMS; }
-      });
-      const [newItem, setNewItem] = useState("");
-      const [hideChecked, setHideChecked] = useState(false);
+  // ---- Persistence ----
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
+  }, [items]);
 
-      useEffect(() => {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
-      }, [items]);
-
-      const addItem = () => {
-        const t = newItem.trim();
-        if (!t) return;
-        setItems(prev => [...prev, { id: Date.now().toString(36), text: t, checked: false, category: "" }]);
-        setNewItem("");
-      };
-
-      const toggleItem = id => setItems(prev => prev.map(i => i.id === id ? { ...i, checked: !i.checked } : i));
-      const clearChecked = () => setItems(prev => prev.filter(i => !i.checked));
-      const reset = () => setItems(DEFAULT_ITEMS);
-
-      const remaining = items.filter(i => !i.checked).length;
-      const displayed = hideChecked ? items.filter(i => !i.checked) : items;
-
-      // group by category
-      const groups = displayed.reduce((acc, item) => {
-        const key = item.category || "Other";
-        (acc[key] ||= []).push(item);
-        return acc;
-      }, {});
-
-      return (
-        <div className="wrap">
-          <header>
-            <h1>Grocery List</h1>
-            <div className="muted">{items.length - remaining} checked • {remaining} to go</div>
-          </header>
-
-          <div className="controls">
-            <input
-              id="newItem"
-              type="text"
-              placeholder="Add an item…"
-              value={newItem}
-              onChange={e => setNewItem(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && addItem()}
-            />
-            <button onClick={addItem}>Add</button>
-            <button className="chip" onClick={() => setHideChecked(v => !v)}>
-              {hideChecked ? "Show checked" : "Hide checked"}
-            </button>
-            <button className="chip" onClick={clearChecked}>Clear checked</button>
-            <button className="chip" onClick={reset}>Reset</button>
-          </div>
-
-          {Object.entries(groups).map(([cat, arr]) => (
-            <section key={cat}>
-              {cat !== "Other" && <h2>{cat}</h2>}
-              <ul>
-                {arr.map(i => (
-                  <li key={i.id}>
-                    <input type="checkbox" checked={i.checked} onChange={() => toggleItem(i.id)} />
-                    <span className={"item-text " + (i.checked ? "done" : "")}>{i.text}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-
-          <div className="footer">Tip: Open this page in Safari → Share → <b>Add to Home Screen</b> to install it like an app. Works offline via localStorage.</div>
-        </div>
-      );
+  // ---- Derived ----
+  const filtered = useMemo(() => {
+    let arr = items;
+    if (hideChecked) arr = arr.filter((i) => !i.checked);
+    if (catFilter !== "All") arr = arr.filter((i) => (i.category || "Other") === catFilter);
+    if (q.trim()) {
+      const s = q.toLowerCase();
+      arr = arr.filter((i) => i.text.toLowerCase().includes(s));
     }
+    return arr;
+  }, [items, hideChecked, q, catFilter]);
 
-    const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(<App />);
-  </script>
-</body>
-</html>
+  const remaining = items.filter((i) => !i.checked).length;
+
+  const groups = useMemo(() => {
+    return filtered.reduce((acc: Record<string, any[]>, it) => {
+      const key = it.category || "Other";
+      (acc[key] ||= []).push(it);
+      return acc;
+    }, {});
+  }, [filtered]);
+
+  // ---- Actions ----
+  function addItem() {
+    const t = text.trim();
+    if (!t) return;
+    setItems((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), text: t, checked: false, category: category || "Other", qty: Math.max(1, qty | 0) },
+    ]);
+    setText("");
+    setQty(1);
+    setCategory("Other");
+    inputRef.current?.focus();
+  }
+  function toggle(id: string) {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i)));
+  }
+  function removeItem(id: string) {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+  function clearChecked() {
+    setItems((prev) => prev.filter((i) => !i.checked));
+  }
+  function resetList() {
+    setItems(DEFAULT_ITEMS);
+  }
+  function incQty(id: string, d = 1) {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, qty: Math.max(1, (i.qty || 1) + d) } : i)));
+  }
+  function startEdit(id: string) {
+    setEditingId(id);
+  }
+  function saveEdit(id: string, newText: string) {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, text: newText.trim() || i.text } : i)));
+    setEditingId(null);
+  }
+
+  async function shareList() {
+    const lines = items.filter((i) => !i.checked).map((i) => `• ${i.text}${i.qty > 1 ? ` x${i.qty}` : ""}`);
+    const body = lines.join("\n") || "(All done!)";
+    if (navigator.share) {
+      try { await navigator.share({ title: "Grocery List", text: body }); } catch {}
+    } else if (navigator.clipboard) {
+      try { await navigator.clipboard.writeText(body); alert("List copied to clipboard"); } catch {}
+    }
+  }
+
+  function exportJSON() {
+    const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "grocery-list.json"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importJSON(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(String(reader.result));
+        if (Array.isArray(data)) setItems(data);
+      } catch {}
+      e.target.value = "";
+    };
+    reader.readAsText(file);
+  }
+
+  // ---- UI ----
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-white text-neutral-900">
+      {/* Header */}
+      <div className="sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-white/60 bg-white/80 border-b border-neutral-100">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Grocery List</h1>
+            <p className="text-xs text-neutral-500">{items.length - remaining} checked • {remaining} to go</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={shareList} className="rounded-xl px-3 py-2 border border-neutral-200 bg-white shadow-sm flex items-center gap-2"><Share2 size={16}/>Share</button>
+            <button onClick={exportJSON} className="rounded-xl px-3 py-2 border border-neutral-200 bg-white shadow-sm flex items-center gap-2"><Download size={16}/>Export</button>
+            <label className="rounded-xl px-3 py-2 border border-neutral-200 bg-white shadow-sm flex items-center gap-2 cursor-pointer">
+              <Upload size={16}/>Import
+              <input type="file" accept="application/json" className="hidden" onChange={importJSON} />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Main */}
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        {/* Add bar */}
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex-1 min-w-[180px]">
+              <input ref={inputRef} value={text} onChange={(e)=>setText(e.target.value)} onKeyDown={(e)=>e.key==='Enter' && addItem()} placeholder="Add an item…" className="w-full rounded-xl border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rose-300"/>
+            </div>
+            <div className="flex items-center gap-2">
+              <select value={category} onChange={(e)=>setCategory(e.target.value)} className="rounded-xl border border-neutral-300 px-3 py-2">
+                {CATEGORIES.filter(c=>c!=="All").map((c)=> <option key={c} value={c}>{c}</option>)}
+              </select>
+              <div className="flex items-center border border-neutral-300 rounded-xl overflow-hidden">
+                <button onClick={()=>setQty(q=>Math.max(1,q-1))} className="px-3 py-2">-</button>
+                <span className="px-3 py-2 text-sm w-8 text-center">{qty}</span>
+                <button onClick={()=>setQty(q=>q+1)} className="px-3 py-2">+</button>
+              </div>
+              <button onClick={addItem} className="rounded-xl px-4 py-2 bg-rose-600 text-white shadow hover:bg-rose-700 active:scale-95 flex items-center gap-2"><Plus size={16}/>Add</button>
+            </div>
+          </div>
+          {/* Quick add chips */}
+          <div className="mt-3 flex flex-wrap gap-2 text-sm">
+            {["Unsalted butter (120 g)", "Kinder Chocolate", "Parchment paper", "Small Ziplock bags"].map((s)=> (
+              <button key={s} onClick={()=>{setText(s); setCategory(s.includes("Chocolate")?"Chocolate": s.includes("paper")?"Supplies":"Other"); setQty(1);}} className="px-3 py-1 rounded-full border border-neutral-300 bg-white hover:bg-neutral-50">{s}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200 shadow-sm flex-1 min-w-[200px]">
+            <Search size={16} className="text-neutral-500"/>
+            <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Search" className="flex-1 outline-none"/>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200 shadow-sm">
+            <Filter size={16} className="text-neutral-500"/>
+            <select value={catFilter} onChange={(e)=>setCatFilter(e.target.value)} className="bg-transparent outline-none">
+              {CATEGORIES.map((c)=> <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <button onClick={()=>setHideChecked(v=>!v)} className="px-3 py-2 rounded-xl border border-neutral-200 bg-white shadow-sm">{hideChecked?"Show checked":"Hide checked"}</button>
+          <button onClick={clearChecked} className="px-3 py-2 rounded-xl border border-neutral-200 bg-white shadow-sm">Clear checked</button>
+          <button onClick={resetList} className="px-3 py-2 rounded-xl border border-neutral-200 bg-white shadow-sm">Reset</button>
+        </div>
+
+        {/* List */}
+        <div className="space-y-5">
+          {Object.entries(groups).map(([cat, arr]) => (
+            <div key={cat}>
+              {cat !== "Other" && <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">{cat}</h2>}
+              <ul className="space-y-2">
+                <AnimatePresence initial={false}>
+                  {arr.map((i) => (
+                    <motion.li
+                      key={i.id}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      className="flex items-center gap-3 bg-white rounded-2xl shadow-sm border border-neutral-200 p-3"
+                    >
+                      <input type="checkbox" className="h-5 w-5" checked={!!i.checked} onChange={()=>toggle(i.id)} />
+
+                      {editingId === i.id ? (
+                        <input
+                          autoFocus
+                          defaultValue={i.text}
+                          onBlur={(e)=>saveEdit(i.id, e.currentTarget.value)}
+                          onKeyDown={(e)=>{ if(e.key==='Enter') (e.target as HTMLInputElement).blur(); if(e.key==='Escape') setEditingId(null); }}
+                          className="flex-1 px-2 py-1 border border-neutral-300 rounded-lg"
+                        />
+                      ) : (
+                        <span className={"flex-1 text-base " + (i.checked ? "line-through text-neutral-400" : "")}>{i.text}</span>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center border border-neutral-300 rounded-xl overflow-hidden">
+                          <button onClick={()=>incQty(i.id,-1)} className="px-2 py-1">-</button>
+                          <span className="px-2 w-8 text-center text-sm">{i.qty || 1}</span>
+                          <button onClick={()=>incQty(i.id,1)} className="px-2 py-1">+</button>
+                        </div>
+                        <button onClick={()=>startEdit(i.id)} className="p-2 rounded-lg border border-neutral-200 bg-white"><Edit3 size={16}/></button>
+                        <button onClick={()=>removeItem(i.id)} className="p-2 rounded-lg border border-neutral-200 bg-white text-rose-600"><Trash2 size={16}/></button>
+                      </div>
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-xs text-neutral-500">Auto‑saves on this device. Share/export for backup.</p>
+      </div>
+    </div>
+  );
+}
