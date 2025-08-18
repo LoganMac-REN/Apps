@@ -83,7 +83,7 @@ button{ font:inherit; cursor:pointer; }
 .item .name{ font-weight:600; line-height:1.2; }
 .sub{ font-size:12px; color:var(--muted); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 
-/* Badges */
+/* Badges (To-Do) */
 .badge{
   font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid var(--border); background:#fafafa;
 }
@@ -94,7 +94,8 @@ button{ font:inherit; cursor:pointer; }
 
 /* Icon buttons */
 .iconbtn{
-  border:1px solid var(--border); background:#fff; border-radius:10px; padding:8px 10px; position:relative;
+  border:1px solid var(--border); background:#fff; border-radius:10px; padding:8px 10px;
+  position:relative; display:inline-flex; align-items:center; justify-content:center;
 }
 .iconbtn svg{ width:18px; height:18px; display:block; }
 
@@ -105,27 +106,13 @@ button{ font:inherit; cursor:pointer; }
   -webkit-appearance: none; appearance: none; border:none; background:transparent;
 }
 
+/* Inline edit */
+.editing .name { display:none; }
+.edit-input{
+  width:100%; font:inherit; padding:8px 10px; border:1px solid var(--border); border-radius:10px;
+}
+.edit-actions{ display:flex; gap:6px; margin-top:6px; }
+.small{ font-size:12px; padding:6px 8px; border-radius:8px; }
+
 /* Footer actions */
 .actions{ display:flex; gap:10px; justify-content:center; margin:14px 0 6px; }
-
-/* Modal */
-.modal{ position:fixed; inset:0; display:none; }
-.modal.open{ display:block; }
-.backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.25); }
-.sheet{
-  position:absolute; left:50%; transform:translateX(-50%);
-  bottom:0; width:min(700px, 100%); background:#fff; border-radius:20px 20px 0 0; box-shadow: var(--shadow);
-  padding:10px; animation:slideUp .2s ease-out;
-}
-@keyframes slideUp{ from{ transform:translate(-50%, 12px); opacity:.9; } to{ transform:translate(-50%, 0); opacity:1; } }
-.sheet-head{ display:flex; align-items:center; justify-content:space-between; padding:8px 6px 0; }
-.sheet-body{ padding:8px 6px; }
-.sheet-foot{ padding:8px 6px 12px; display:flex; justify-content:flex-end; }
-textarea{
-  width:100%; min-height:140px; padding:12px; border:1px solid var(--border); border-radius:12px; font:inherit;
-}
-
-/* iPhone safe area */
-@supports(padding:max(0px)){
-  .sheet{ padding-bottom: max(10px, env(safe-area-inset-bottom)); }
-}
