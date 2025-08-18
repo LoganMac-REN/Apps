@@ -1,10 +1,10 @@
-<!<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Grocery & To-Do</title>
-  <link rel="stylesheet" href="style.css?v=1" />
+  <link rel="stylesheet" href="style.css?v=2" />
   <meta http-equiv="Cache-Control" content="no-store" />
 </head>
 <body>
@@ -17,7 +17,7 @@
   </header>
 
   <main class="container">
-    <!-- Grocery Page -->
+    <!-- Grocery -->
     <section id="page-grocery" class="page active" role="tabpanel" aria-labelledby="tab-grocery">
       <h1>Grocery List</h1>
 
@@ -40,13 +40,16 @@
       </footer>
     </section>
 
-    <!-- To-Do Page -->
+    <!-- To-Do -->
     <section id="page-todo" class="page" role="tabpanel" aria-labelledby="tab-todo" hidden>
       <h1>To-Do</h1>
 
       <form id="todo-form" class="addbar" autocomplete="off">
-        <input id="t-name" inputmode="text" placeholder="Add a task…" aria-label="Task" />
-        <input id="t-date" type="date" aria-label="Due date" />
+        <input id="t-name" placeholder="Add a task…" aria-label="Task" />
+        <div class="datewrap">
+          <span class="icon" aria-hidden="true">📅</span>
+          <input id="t-date" type="date" aria-label="Due date" />
+        </div>
         <button id="t-add" class="primary" type="submit">Add</button>
       </form>
 
@@ -77,6 +80,6 @@
     <div id="modal-backdrop" class="backdrop"></div>
   </div>
 
-  <script src="app.js?v=1"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>
