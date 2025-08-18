@@ -26,6 +26,13 @@ document.addEventListener("DOMContentLoaded", function () {
     return Math.round((d - today) / 86400000);
   }
 
+  // ---------- Force To-Do as landing page ----------
+  (function ensureTodoLanding(){
+    // If Grocery accidentally marked active via cache, switch to To-Do
+    var todoTab = $("#tab-todo");
+    if (todoTab && !todoTab.classList.contains("active")) switchPage("page-todo");
+  })();
+
   // ---------- UI State (toggles) ----------
   var hideCheckedGroceries = false;
   var hideCompletedTodos   = false;
@@ -130,7 +137,6 @@ document.addEventListener("DOMContentLoaded", function () {
       ul.appendChild(li);
     });
 
-    // toggle button label
     $("#g-toggle-checked").textContent = hideCheckedGroceries ? "Show checked" : "Hide checked";
   }
 
@@ -138,14 +144,14 @@ document.addEventListener("DOMContentLoaded", function () {
     var ul = $("#todo-list");
     ul.innerHTML = "";
 
-    // sort: completed last; then dated before no-date; then by dayDiff (overdue < today < tomorrow < ...); fallback by created
+    // sort: completed last; dated first; then by soonest (overdue -> today -> ...); then created
     var items = todos.slice().sort(function(a,b){
-      if (!!a.checked !== !!b.checked) return a.checked ? 1 : -1; // completed last
+      if (!!a.checked !== !!b.checked) return a.checked ? 1 : -1;
       var aHas = !!a.date, bHas = !!b.date;
-      if (aHas !== bHas) return aHas ? -1 : 1;                     // dated first
+      if (aHas !== bHas) return aHas ? -1 : 1;
       if (aHas && bHas) {
         var da = dayDiff(a.date), db = dayDiff(b.date);
-        if (da !== db) return da - db;                              // sooner first (overdue at top)
+        if (da !== db) return da - db;
       }
       return (a.created||0) - (b.created||0);
     });
@@ -177,7 +183,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       var right = document.createElement("div"); right.style.display="flex"; right.style.gap="8px";
 
-      // Calendar icon with a transparent date input overlay (works on iOS)
+      // Calendar button with transparent date input overlay (iOS reliable)
       var dateWrap = document.createElement("div");
       dateWrap.className = "iconbtn datepick-wrap"; dateWrap.title = "Change due date";
       dateWrap.innerHTML =
@@ -214,7 +220,6 @@ document.addEventListener("DOMContentLoaded", function () {
       ul.appendChild(li);
     });
 
-    // toggle button label
     $("#t-toggle-completed").textContent = hideCompletedTodos ? "Show completed" : "Hide completed";
   }
 
@@ -241,7 +246,6 @@ document.addEventListener("DOMContentLoaded", function () {
     todos.unshift({ id: uid(), name: name, date: date, checked:false, notes:"", created: Date.now() });
     store.write("todoItems", todos);
 
-    // Clear task name and reset date back to TODAY
     $("#t-name").value = "";
     $("#t-date").value = todayISO();
 
@@ -313,7 +317,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if(e.key === "Escape" && $("#modal").classList.contains("open")) modal.close();
   });
 
-  // ---------- Init ----------
+  // ---------- Initial render (To-Do first) ----------
   renderGrocery();
   renderTodo();
+  switchPage("page-todo");
 });
