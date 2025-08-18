@@ -16,16 +16,22 @@ document.addEventListener("DOMContentLoaded", function () {
   function $all(s, p){ return Array.prototype.slice.call((p || document).querySelectorAll(s)); }
   function uid(){ return Math.random().toString(36).slice(2, 10); }
   function todayISO(){
-    var d = new Date();
-    var y = d.getFullYear();
-    var m = String(d.getMonth()+1).padStart(2,"0");
-    var day = String(d.getDate()).padStart(2,"0");
-    return y+"-"+m+"-"+day;
+    var d = new Date(), y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), dd=('0'+d.getDate()).slice(-2);
+    return y+'-'+m+'-'+dd;
+  }
+  function dayDiff(dateStr){
+    if(!dateStr) return 1e9;
+    var today = new Date(); today.setHours(0,0,0,0);
+    var d = new Date(dateStr + "T00:00:00");
+    return Math.round((d - today) / 86400000);
   }
 
-  // ---------- Set default date in add bar to TODAY ----------
-  var tDate = $("#t-date");
-  if (tDate) tDate.value = todayISO();
+  // ---------- UI State (toggles) ----------
+  var hideCheckedGroceries = false;
+  var hideCompletedTodos   = false;
+
+  // ---------- Default date in add bar ----------
+  var tDate = $("#t-date"); if (tDate) tDate.value = todayISO();
 
   // ---------- Notes modal ----------
   var modal = {
@@ -84,7 +90,11 @@ document.addEventListener("DOMContentLoaded", function () {
   function renderGrocery(){
     var ul = $("#grocery-list");
     ul.innerHTML = "";
-    groceries.forEach(function(it){
+
+    var items = groceries.slice();
+    if (hideCheckedGroceries) items = items.filter(function(it){ return !it.checked; });
+
+    items.forEach(function(it){
       var li = document.createElement("li");
       li.className = "item";
       li.dataset.id = it.id;
@@ -105,8 +115,7 @@ document.addEventListener("DOMContentLoaded", function () {
       var right = document.createElement("div"); right.style.display="flex"; right.style.gap="8px";
 
       var noteBtn = document.createElement("button");
-      noteBtn.className = "iconbtn"; noteBtn.title = "Notes";
-      noteBtn.textContent = "📝";
+      noteBtn.className = "iconbtn"; noteBtn.title = "Notes"; noteBtn.textContent = "📝";
       noteBtn.addEventListener("click", function(){ openNotesFor("grocery", it.id); });
 
       var delBtn = document.createElement("button");
@@ -120,12 +129,30 @@ document.addEventListener("DOMContentLoaded", function () {
       li.appendChild(cb); li.appendChild(main); li.appendChild(right);
       ul.appendChild(li);
     });
+
+    // toggle button label
+    $("#g-toggle-checked").textContent = hideCheckedGroceries ? "Show checked" : "Hide checked";
   }
 
   function renderTodo(){
     var ul = $("#todo-list");
     ul.innerHTML = "";
-    todos.forEach(function(it){
+
+    // sort: completed last; then dated before no-date; then by dayDiff (overdue < today < tomorrow < ...); fallback by created
+    var items = todos.slice().sort(function(a,b){
+      if (!!a.checked !== !!b.checked) return a.checked ? 1 : -1; // completed last
+      var aHas = !!a.date, bHas = !!b.date;
+      if (aHas !== bHas) return aHas ? -1 : 1;                     // dated first
+      if (aHas && bHas) {
+        var da = dayDiff(a.date), db = dayDiff(b.date);
+        if (da !== db) return da - db;                              // sooner first (overdue at top)
+      }
+      return (a.created||0) - (b.created||0);
+    });
+
+    if (hideCompletedTodos) items = items.filter(function(it){ return !it.checked; });
+
+    items.forEach(function(it){
       var li = document.createElement("li");
       li.className = "item";
       li.dataset.id = it.id;
@@ -150,17 +177,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
       var right = document.createElement("div"); right.style.display="flex"; right.style.gap="8px";
 
-      // Inline date edit button (SVG icon)
-      var dateBtn = document.createElement("button");
-      dateBtn.className = "iconbtn"; dateBtn.title = "Change due date";
-      dateBtn.innerHTML =
+      // Calendar icon with a transparent date input overlay (works on iOS)
+      var dateWrap = document.createElement("div");
+      dateWrap.className = "iconbtn datepick-wrap"; dateWrap.title = "Change due date";
+      dateWrap.innerHTML =
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
         '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>' +
         '<line x1="16" y1="2" x2="16" y2="6"></line>' +
         '<line x1="8" y1="2" x2="8" y2="6"></line>' +
         '<line x1="3" y1="10" x2="21" y2="10"></line>' +
         '</svg>';
-      dateBtn.addEventListener("click", function(e){ e.preventDefault(); openInlineDatePicker(it.id, it.date); });
+      var inline = document.createElement("input");
+      inline.type = "date";
+      inline.className = "datepick-overlay";
+      inline.value = it.date || "";
+      inline.addEventListener("change", function(e){
+        it.date = e.target.value || "";
+        store.write("todoItems", todos);
+        renderTodo();
+      });
+      dateWrap.appendChild(inline);
 
       var noteBtn = document.createElement("button");
       noteBtn.className = "iconbtn"; noteBtn.title = "Notes"; noteBtn.textContent = "📝";
@@ -173,10 +209,13 @@ document.addEventListener("DOMContentLoaded", function () {
         store.write("todoItems", todos); renderTodo();
       });
 
-      right.appendChild(dateBtn); right.appendChild(noteBtn); right.appendChild(delBtn);
+      right.appendChild(dateWrap); right.appendChild(noteBtn); right.appendChild(delBtn);
       li.appendChild(cb); li.appendChild(main); li.appendChild(right);
       ul.appendChild(li);
     });
+
+    // toggle button label
+    $("#t-toggle-completed").textContent = hideCompletedTodos ? "Show completed" : "Hide completed";
   }
 
   // ---------- Add / Mutations ----------
@@ -199,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var date = $("#t-date").value || "";
     if(!name) return;
 
-    todos.unshift({ id: uid(), name: name, date: date, checked:false, notes:"" });
+    todos.unshift({ id: uid(), name: name, date: date, checked:false, notes:"", created: Date.now() });
     store.write("todoItems", todos);
 
     // Clear task name and reset date back to TODAY
@@ -220,14 +259,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  // Hide/Clear/Reset — Grocery
-  $("#g-hide-checked").addEventListener("click", function(){
-    var ul = $("#grocery-list");
-    $all(".item", ul).forEach(function(li){
-      var id = li.dataset.id;
-      var it = groceries.find(function(g){ return g.id === id; });
-      li.style.display = it && it.checked ? "none" : "";
-    });
+  // Grocery toggles & clears
+  $("#g-toggle-checked").addEventListener("click", function(){
+    hideCheckedGroceries = !hideCheckedGroceries; renderGrocery();
   });
   $("#g-clear-checked").addEventListener("click", function(){
     groceries = groceries.filter(function(g){ return !g.checked; });
@@ -239,16 +273,11 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // Hide/Clear/Reset — To-Do
-  $("#t-hide-checked").addEventListener("click", function(){
-    var ul = $("#todo-list");
-    $all(".item", ul).forEach(function(li){
-      var id = li.dataset.id;
-      var it = todos.find(function(t){ return t.id === id; });
-      li.style.display = it && it.checked ? "none" : "";
-    });
+  // To-Do toggles & clears
+  $("#t-toggle-completed").addEventListener("click", function(){
+    hideCompletedTodos = !hideCompletedTodos; renderTodo();
   });
-  $("#t-clear-checked").addEventListener("click", function(){
+  $("#t-clear-completed").addEventListener("click", function(){
     todos = todos.filter(function(t){ return !t.checked; });
     store.write("todoItems", todos); renderTodo();
   });
@@ -282,25 +311,6 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   document.addEventListener("keydown", function(e){
     if(e.key === "Escape" && $("#modal").classList.contains("open")) modal.close();
-  });
-
-  // ---------- Inline date picker (shared hidden input) ----------
-  var editingTodoId = null;
-  function openInlineDatePicker(id, current){
-    var input = $("#inline-date");
-    editingTodoId = id;
-    input.value = current || "";
-    if (input.showPicker) { try { input.showPicker(); } catch(e){ input.click(); } }
-    else { input.click(); }
-  }
-  $("#inline-date").addEventListener("change", function(e){
-    if(!editingTodoId) return;
-    var t = todos.find(function(x){ return x.id === editingTodoId; });
-    if(t){
-      t.date = e.target.value || "";
-      store.write("todoItems", todos); renderTodo();
-    }
-    editingTodoId = null;
   });
 
   // ---------- Init ----------
