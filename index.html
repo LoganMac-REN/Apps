@@ -1,18 +1,18 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Grocery & To-Do</title>
-  <link rel="stylesheet" href="style.css?v=2" />
+  <link rel="stylesheet" href="style.css?v=4" />
   <meta http-equiv="Cache-Control" content="no-store" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">My Lists</div>
     <nav class="tabs" role="tablist" aria-label="Pages">
-      <button id="tab-grocery" class="tab active" data-target="page-grocery" role="tab" aria-selected="true">Grocery</button>
-      <button id="tab-todo" class="tab" data-target="page-todo" role="tab" aria-selected="false">To-Do</button>
+      <button id="tab-grocery" class="tab active" data-target="page-grocery" role="tab" aria-selected="true" type="button">Grocery</button>
+      <button id="tab-todo" class="tab" data-target="page-todo" role="tab" aria-selected="false" type="button">To-Do</button>
     </nav>
   </header>
 
@@ -21,7 +21,7 @@
     <section id="page-grocery" class="page active" role="tabpanel" aria-labelledby="tab-grocery">
       <h1>Grocery List</h1>
 
-      <form id="grocery-form" class="addbar" autocomplete="off">
+      <form id="grocery-form" class="addbar" autocomplete="off" novalidate>
         <input id="g-name" inputmode="text" placeholder="Add a grocery item…" aria-label="Grocery item" />
         <div class="qtywrap" aria-label="Quantity">
           <button type="button" class="qtybtn" data-q="-1" aria-label="Decrease quantity">−</button>
@@ -34,9 +34,9 @@
       <ul id="grocery-list" class="list" aria-live="polite"></ul>
 
       <footer class="actions">
-        <button id="g-hide-checked">Hide checked</button>
-        <button id="g-clear-checked">Clear checked</button>
-        <button id="g-reset" class="danger">Reset</button>
+        <button id="g-hide-checked" type="button">Hide checked</button>
+        <button id="g-clear-checked" type="button">Clear checked</button>
+        <button id="g-reset" class="danger" type="button">Reset</button>
       </footer>
     </section>
 
@@ -44,7 +44,7 @@
     <section id="page-todo" class="page" role="tabpanel" aria-labelledby="tab-todo" hidden>
       <h1>To-Do</h1>
 
-      <form id="todo-form" class="addbar" autocomplete="off">
+      <form id="todo-form" class="addbar" autocomplete="off" novalidate>
         <input id="t-name" placeholder="Add a task…" aria-label="Task" />
         <div class="datewrap">
           <span class="icon" aria-hidden="true">📅</span>
@@ -56,30 +56,33 @@
       <ul id="todo-list" class="list" aria-live="polite"></ul>
 
       <footer class="actions">
-        <button id="t-hide-checked">Hide completed</button>
-        <button id="t-clear-checked">Clear completed</button>
-        <button id="t-reset" class="danger">Reset</button>
+        <button id="t-hide-checked" type="button">Hide completed</button>
+        <button id="t-clear-checked" type="button">Clear completed</button>
+        <button id="t-reset" class="danger" type="button">Reset</button>
       </footer>
     </section>
   </main>
+
+  <!-- Hidden shared date input for inline editing -->
+  <input id="inline-date" type="date" class="hidden-date" aria-hidden="true" />
 
   <!-- Notes Modal -->
   <div id="modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="sheet">
       <header class="sheet-head">
         <h2 id="modal-title">Notes</h2>
-        <button id="modal-close" class="iconbtn" aria-label="Close">✕</button>
+        <button id="modal-close" class="iconbtn" aria-label="Close" type="button">✕</button>
       </header>
       <div class="sheet-body">
         <textarea id="modal-notes" rows="6" placeholder="Type notes…"></textarea>
       </div>
       <footer class="sheet-foot">
-        <button id="modal-save" class="primary">Save</button>
+        <button id="modal-save" class="primary" type="button">Save</button>
       </footer>
     </div>
     <div id="modal-backdrop" class="backdrop"></div>
   </div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
