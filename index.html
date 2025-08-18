@@ -4,21 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Grocery & To-Do</title>
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=7" />
   <meta http-equiv="Cache-Control" content="no-store" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">My Lists</div>
     <nav class="tabs" role="tablist" aria-label="Pages">
-      <button id="tab-grocery" class="tab active" data-target="page-grocery" role="tab" aria-selected="true" type="button">Grocery</button>
-      <button id="tab-todo" class="tab" data-target="page-todo" role="tab" aria-selected="false" type="button">To-Do</button>
+      <!-- To-Do is active by default -->
+      <button id="tab-grocery" class="tab" data-target="page-grocery" role="tab" aria-selected="false" type="button">Grocery</button>
+      <button id="tab-todo" class="tab active" data-target="page-todo" role="tab" aria-selected="true" type="button">To-Do</button>
     </nav>
   </header>
 
   <main class="container">
-    <!-- Grocery -->
-    <section id="page-grocery" class="page active" role="tabpanel" aria-labelledby="tab-grocery">
+    <!-- Grocery (hidden initially) -->
+    <section id="page-grocery" class="page" role="tabpanel" aria-labelledby="tab-grocery" hidden>
       <h1>Grocery List</h1>
 
       <form id="grocery-form" class="addbar" autocomplete="off" novalidate>
@@ -40,8 +41,8 @@
       </footer>
     </section>
 
-    <!-- To-Do -->
-    <section id="page-todo" class="page" role="tabpanel" aria-labelledby="tab-todo" hidden>
+    <!-- To-Do (visible initially) -->
+    <section id="page-todo" class="page active" role="tabpanel" aria-labelledby="tab-todo">
       <h1>To-Do</h1>
 
       <form id="todo-form" class="addbar" autocomplete="off" novalidate>
@@ -80,6 +81,6 @@
     <div id="modal-backdrop" class="backdrop"></div>
   </div>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
