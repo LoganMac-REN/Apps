@@ -15,13 +15,24 @@ document.addEventListener("DOMContentLoaded", function () {
   function $(s, p){ return (p || document).querySelector(s); }
   function $all(s, p){ return Array.prototype.slice.call((p || document).querySelectorAll(s)); }
   function uid(){ return Math.random().toString(36).slice(2, 10); }
+  function todayISO(){
+    var d = new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth()+1).padStart(2,"0");
+    var day = String(d.getDate()).padStart(2,"0");
+    return y+"-"+m+"-"+day;
+  }
 
-  // Notes modal state
+  // ---------- Set default date in add bar to TODAY ----------
+  var tDate = $("#t-date");
+  if (tDate) tDate.value = todayISO();
+
+  // ---------- Notes modal ----------
   var modal = {
     el: $("#modal"),
     title: $("#modal-title"),
     notes: $("#modal-notes"),
-    openFor: null, // {type:'grocery'|'todo', id}
+    openFor: null,
     open: function (title, text, ctx){
       this.title.textContent = title || "Notes";
       this.notes.value = text || "";
@@ -55,18 +66,17 @@ document.addEventListener("DOMContentLoaded", function () {
     btn.addEventListener("click", function(){ switchPage(btn.getAttribute("data-target")); });
   });
 
-  // ---------- Due date formatting ----------
+  // ---------- Due badge formatter ----------
   function formatDue(dateStr){
     if(!dateStr) return { text: "No date", cls: "due-none" };
-    var today = new Date(); today.setHours(0,0,0,0);
+    var now = new Date(); now.setHours(0,0,0,0);
     var d = new Date(dateStr + "T00:00:00");
-    var diffDays = Math.round((d - today) / 86400000);
-    var opts = { weekday: "short", month: "short", day: "numeric" };
-    var pretty = d.toLocaleDateString(undefined, opts); // Mon, Aug 19
-    if (diffDays < 0)  return { text: "Overdue · " + pretty, cls: "due-overdue" };
-    if (diffDays === 0) return { text: "Today", cls: "due-today" };
-    if (diffDays === 1) return { text: "Tomorrow", cls: "due-today" };
-    if (diffDays <= 7) return { text: pretty, cls: "due-soon" };
+    var diff = Math.round((d - now) / 86400000);
+    var pretty = d.toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric" });
+    if (diff < 0)  return { text: "Overdue · " + pretty, cls: "due-overdue" };
+    if (diff === 0) return { text: "Today", cls: "due-today" };
+    if (diff === 1) return { text: "Tomorrow", cls: "due-today" };
+    if (diff <= 7)  return { text: pretty, cls: "due-soon" };
     return { text: pretty, cls: "" };
   }
 
@@ -95,7 +105,8 @@ document.addEventListener("DOMContentLoaded", function () {
       var right = document.createElement("div"); right.style.display="flex"; right.style.gap="8px";
 
       var noteBtn = document.createElement("button");
-      noteBtn.className = "iconbtn"; noteBtn.title = "Notes"; noteBtn.textContent = "📝";
+      noteBtn.className = "iconbtn"; noteBtn.title = "Notes";
+      noteBtn.textContent = "📝";
       noteBtn.addEventListener("click", function(){ openNotesFor("grocery", it.id); });
 
       var delBtn = document.createElement("button");
@@ -139,9 +150,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
       var right = document.createElement("div"); right.style.display="flex"; right.style.gap="8px";
 
+      // Inline date edit button (SVG icon)
       var dateBtn = document.createElement("button");
-      dateBtn.className = "iconbtn"; dateBtn.title = "Change due date"; dateBtn.textContent = "📅";
-      dateBtn.addEventListener("click", function(){ openInlineDatePicker(it.id, it.date); });
+      dateBtn.className = "iconbtn"; dateBtn.title = "Change due date";
+      dateBtn.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>' +
+        '<line x1="16" y1="2" x2="16" y2="6"></line>' +
+        '<line x1="8" y1="2" x2="8" y2="6"></line>' +
+        '<line x1="3" y1="10" x2="21" y2="10"></line>' +
+        '</svg>';
+      dateBtn.addEventListener("click", function(e){ e.preventDefault(); openInlineDatePicker(it.id, it.date); });
 
       var noteBtn = document.createElement("button");
       noteBtn.className = "iconbtn"; noteBtn.title = "Notes"; noteBtn.textContent = "📝";
@@ -182,7 +201,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     todos.unshift({ id: uid(), name: name, date: date, checked:false, notes:"" });
     store.write("todoItems", todos);
-    $("#t-name").value = ""; $("#t-date").value = "";
+
+    // Clear task name and reset date back to TODAY
+    $("#t-name").value = "";
+    $("#t-date").value = todayISO();
+
     renderTodo();
   });
 
