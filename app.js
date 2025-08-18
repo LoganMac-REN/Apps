@@ -26,40 +26,12 @@ document.addEventListener("DOMContentLoaded", function () {
     return Math.round((d - today) / 86400000);
   }
 
-  // ---------- Force To-Do as landing page ----------
-  (function ensureTodoLanding(){
-    // If Grocery accidentally marked active via cache, switch to To-Do
-    var todoTab = $("#tab-todo");
-    if (todoTab && !todoTab.classList.contains("active")) switchPage("page-todo");
-  })();
-
   // ---------- UI State (toggles) ----------
   var hideCheckedGroceries = false;
   var hideCompletedTodos   = false;
 
-  // ---------- Default date in add bar ----------
+  // ---------- Default To-Do date today ----------
   var tDate = $("#t-date"); if (tDate) tDate.value = todayISO();
-
-  // ---------- Notes modal ----------
-  var modal = {
-    el: $("#modal"),
-    title: $("#modal-title"),
-    notes: $("#modal-notes"),
-    openFor: null,
-    open: function (title, text, ctx){
-      this.title.textContent = title || "Notes";
-      this.notes.value = text || "";
-      this.openFor = ctx;
-      this.el.classList.add("open");
-      this.el.setAttribute("aria-hidden","false");
-      this.notes.focus();
-    },
-    close: function (){
-      this.el.classList.remove("open");
-      this.el.setAttribute("aria-hidden","true");
-      this.openFor = null;
-    }
-  };
 
   // ---------- Tabs ----------
   function switchPage(targetId){
@@ -78,6 +50,8 @@ document.addEventListener("DOMContentLoaded", function () {
   $all(".tab").forEach(function(btn){
     btn.addEventListener("click", function(){ switchPage(btn.getAttribute("data-target")); });
   });
+  // Make To-Do the landing page for sure
+  switchPage("page-todo");
 
   // ---------- Due badge formatter ----------
   function formatDue(dateStr){
@@ -91,6 +65,50 @@ document.addEventListener("DOMContentLoaded", function () {
     if (diff === 1) return { text: "Tomorrow", cls: "due-today" };
     if (diff <= 7)  return { text: pretty, cls: "due-soon" };
     return { text: pretty, cls: "" };
+  }
+
+  // ---------- Inline edit helpers ----------
+  function startEdit(li, currentText, onSave){
+    if (li.classList.contains("editing")) return;
+    li.classList.add("editing");
+
+    var editWrap = document.createElement("div");
+    var input = document.createElement("input");
+    input.className = "edit-input";
+    input.value = currentText || "";
+    input.setAttribute("aria-label", "Edit item");
+    editWrap.appendChild(input);
+
+    var actions = document.createElement("div");
+    actions.className = "edit-actions";
+    var save = document.createElement("button");
+    save.type = "button"; save.className = "primary small"; save.textContent = "Save";
+    var cancel = document.createElement("button");
+    cancel.type = "button"; cancel.className = "small"; cancel.textContent = "Cancel";
+    actions.appendChild(save); actions.appendChild(cancel);
+    editWrap.appendChild(actions);
+
+    // Place edit UI right under the name container
+    var main = li.querySelector("div:nth-child(2)");
+    main.appendChild(editWrap);
+    input.focus();
+
+    function commit(){
+      var v = input.value.trim();
+      if (v) onSave(v);
+      cleanup();
+    }
+    function cleanup(){
+      li.classList.remove("editing");
+      editWrap.remove();
+    }
+
+    save.addEventListener("click", commit);
+    cancel.addEventListener("click", cleanup);
+    input.addEventListener("keydown", function(e){
+      if (e.key === "Enter") commit();
+      if (e.key === "Escape") cleanup();
+    });
   }
 
   // ---------- Renderers ----------
@@ -117,22 +135,43 @@ document.addEventListener("DOMContentLoaded", function () {
       var name = document.createElement("div"); name.className = "name"; name.textContent = it.name;
       var sub  = document.createElement("div"); sub.className = "sub"; sub.textContent = "Qty " + it.qty;
       main.appendChild(name); main.appendChild(sub);
-      main.addEventListener("click", function(){ openNotesFor("grocery", it.id); });
+
+      // Double-tap the name area to edit text
+      var tapTimer = null;
+      main.addEventListener("click", function(){
+        if (tapTimer){ clearTimeout(tapTimer); tapTimer = null; // double tap
+          startEdit(li, it.name, function(newText){
+            it.name = newText; store.write("groceryItems", groceries); renderGrocery();
+          });
+        } else {
+          tapTimer = setTimeout(function(){ tapTimer = null; }, 250);
+        }
+      });
 
       var right = document.createElement("div"); right.style.display="flex"; right.style.gap="8px";
 
-      var noteBtn = document.createElement("button");
-      noteBtn.className = "iconbtn"; noteBtn.title = "Notes"; noteBtn.textContent = "📝";
-      noteBtn.addEventListener("click", function(){ openNotesFor("grocery", it.id); });
+      // Edit button (pencil)
+      var editBtn = document.createElement("button");
+      editBtn.className = "iconbtn"; editBtn.title = "Edit name";
+      editBtn.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>' +
+        '</svg>';
+      editBtn.addEventListener("click", function(){
+        startEdit(li, it.name, function(newText){
+          it.name = newText; store.write("groceryItems", groceries); renderGrocery();
+        });
+      });
 
       var delBtn = document.createElement("button");
-      delBtn.className = "iconbtn"; delBtn.title = "Delete"; delBtn.textContent = "🗑️";
+      delBtn.className = "iconbtn"; delBtn.title = "Delete";
+      delBtn.textContent = "🗑️";
       delBtn.addEventListener("click", function(){
         groceries = groceries.filter(function(g){ return g.id !== it.id; });
         store.write("groceryItems", groceries); renderGrocery();
       });
 
-      right.appendChild(noteBtn); right.appendChild(delBtn);
+      right.appendChild(editBtn); right.appendChild(delBtn);
       li.appendChild(cb); li.appendChild(main); li.appendChild(right);
       ul.appendChild(li);
     });
@@ -144,7 +183,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var ul = $("#todo-list");
     ul.innerHTML = "";
 
-    // sort: completed last; dated first; then by soonest (overdue -> today -> ...); then created
+    // sort: completed last; dated first; by soonest (overdue -> today -> ...); then created
     var items = todos.slice().sort(function(a,b){
       if (!!a.checked !== !!b.checked) return a.checked ? 1 : -1;
       var aHas = !!a.date, bHas = !!b.date;
@@ -179,11 +218,22 @@ document.addEventListener("DOMContentLoaded", function () {
       sub.appendChild(badge);
 
       main.appendChild(name); main.appendChild(sub);
-      main.addEventListener("click", function(){ openNotesFor("todo", it.id); });
+
+      // Double-tap to edit task name
+      var tapTimer = null;
+      main.addEventListener("click", function(){
+        if (tapTimer){ clearTimeout(tapTimer); tapTimer = null;
+          startEdit(li, it.name, function(newText){
+            it.name = newText; store.write("todoItems", todos); renderTodo();
+          });
+        } else {
+          tapTimer = setTimeout(function(){ tapTimer = null; }, 250);
+        }
+      });
 
       var right = document.createElement("div"); right.style.display="flex"; right.style.gap="8px";
 
-      // Calendar button with transparent date input overlay (iOS reliable)
+      // Calendar button with transparent date input overlay
       var dateWrap = document.createElement("div");
       dateWrap.className = "iconbtn datepick-wrap"; dateWrap.title = "Change due date";
       dateWrap.innerHTML =
@@ -204,9 +254,18 @@ document.addEventListener("DOMContentLoaded", function () {
       });
       dateWrap.appendChild(inline);
 
-      var noteBtn = document.createElement("button");
-      noteBtn.className = "iconbtn"; noteBtn.title = "Notes"; noteBtn.textContent = "📝";
-      noteBtn.addEventListener("click", function(){ openNotesFor("todo", it.id); });
+      // Edit name button (pencil)
+      var editBtn = document.createElement("button");
+      editBtn.className = "iconbtn"; editBtn.title = "Edit task";
+      editBtn.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>' +
+        '</svg>';
+      editBtn.addEventListener("click", function(){
+        startEdit(li, it.name, function(newText){
+          it.name = newText; store.write("todoItems", todos); renderTodo();
+        });
+      });
 
       var delBtn = document.createElement("button");
       delBtn.className = "iconbtn"; delBtn.title = "Delete"; delBtn.textContent = "🗑️";
@@ -215,7 +274,7 @@ document.addEventListener("DOMContentLoaded", function () {
         store.write("todoItems", todos); renderTodo();
       });
 
-      right.appendChild(dateWrap); right.appendChild(noteBtn); right.appendChild(delBtn);
+      right.appendChild(dateWrap); right.appendChild(editBtn); right.appendChild(delBtn);
       li.appendChild(cb); li.appendChild(main); li.appendChild(right);
       ul.appendChild(li);
     });
@@ -231,7 +290,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if(!name) return;
     if(isNaN(qty) || qty < 1) qty = 1;
 
-    groceries.unshift({ id: uid(), name: name, qty: qty, checked:false, notes:"" });
+    groceries.unshift({ id: uid(), name: name, qty: qty, checked:false });
     store.write("groceryItems", groceries);
     $("#g-name").value = ""; $("#g-qty").value = "1";
     renderGrocery();
@@ -243,7 +302,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var date = $("#t-date").value || "";
     if(!name) return;
 
-    todos.unshift({ id: uid(), name: name, date: date, checked:false, notes:"", created: Date.now() });
+    todos.unshift({ id: uid(), name: name, date: date, checked:false, created: Date.now() });
     store.write("todoItems", todos);
 
     $("#t-name").value = "";
@@ -291,34 +350,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // ---------- Notes Modal ----------
-  function openNotesFor(type, id){
-    var list = type === "grocery" ? groceries : todos;
-    var item = list.find(function(x){ return x.id === id; });
-    if(!item) return;
-    modal.open(item.name, item.notes || "", { type: type, id: id });
-  }
-  $("#modal-close").addEventListener("click", function(){ modal.close(); });
-  $("#modal-backdrop").addEventListener("click", function(){ modal.close(); });
-  $("#modal-save").addEventListener("click", function(){
-    if(!modal.openFor) return;
-    var type = modal.openFor.type, id = modal.openFor.id;
-    var list = type === "grocery" ? groceries : todos;
-    var item = list.find(function(x){ return x.id === id; });
-    if(item){
-      item.notes = $("#modal-notes").value.trim();
-      if(type === "grocery") store.write("groceryItems", groceries);
-      else store.write("todoItems", todos);
-      if(type === "grocery") renderGrocery(); else renderTodo();
-    }
-    modal.close();
-  });
-  document.addEventListener("keydown", function(e){
-    if(e.key === "Escape" && $("#modal").classList.contains("open")) modal.close();
-  });
-
-  // ---------- Initial render (To-Do first) ----------
+  // ---------- Initial render ----------
   renderGrocery();
   renderTodo();
-  switchPage("page-todo");
 });
