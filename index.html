@@ -4,14 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Grocery & To-Do</title>
-  <link rel="stylesheet" href="style.css?v=7" />
+  <link rel="stylesheet" href="style.css?v=8" />
   <meta http-equiv="Cache-Control" content="no-store" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">My Lists</div>
     <nav class="tabs" role="tablist" aria-label="Pages">
-      <!-- To-Do is active by default -->
       <button id="tab-grocery" class="tab" data-target="page-grocery" role="tab" aria-selected="false" type="button">Grocery</button>
       <button id="tab-todo" class="tab active" data-target="page-todo" role="tab" aria-selected="true" type="button">To-Do</button>
     </nav>
@@ -64,23 +63,6 @@
     </section>
   </main>
 
-  <!-- Notes Modal -->
-  <div id="modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
-    <div class="sheet">
-      <header class="sheet-head">
-        <h2 id="modal-title">Notes</h2>
-        <button id="modal-close" class="iconbtn" aria-label="Close" type="button">✕</button>
-      </header>
-      <div class="sheet-body">
-        <textarea id="modal-notes" rows="6" placeholder="Type notes…"></textarea>
-      </div>
-      <footer class="sheet-foot">
-        <button id="modal-save" class="primary" type="button">Save</button>
-      </footer>
-    </div>
-    <div id="modal-backdrop" class="backdrop"></div>
-  </div>
-
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
