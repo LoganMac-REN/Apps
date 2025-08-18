@@ -1,34 +1,33 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Edit3, Check, X, Share2, Download, Upload, Search, Filter } from "lucide-react";
+import { Plus, Trash2, Edit3, Share2, Download, Upload, Search, Filter } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 export default function GroceryListApp() {
-  // ---- Config ----
   const STORAGE_KEY = "groceryList_v2";
   const DEFAULT_ITEMS = [
     { id: "butter", text: "Unsalted butter (120 g)", checked: false, category: "Baking", qty: 1 },
     { id: "kinder", text: "Kinder Chocolate", checked: false, category: "Chocolate", qty: 1 },
     { id: "parchment", text: "Parchment paper", checked: false, category: "Supplies", qty: 1 },
-    { id: "ziplock", text: "Small Ziplock bags", checked: false, category: "Supplies", qty: 1 },
+    { id: "ziplock", text: "Small Ziplock bags", checked: false, category: "Supplies", qty: 1 }
   ];
   const CATEGORIES = ["All", "Baking", "Produce", "Dairy", "Meat", "Pantry", "Chocolate", "Supplies", "Other"];
 
-  // ---- State ----
   const [items, setItems] = useState(() => {
     try {
       const rawV2 = localStorage.getItem(STORAGE_KEY);
       if (rawV2) return JSON.parse(rawV2);
-      // migrate from v1 if present
       const rawV1 = localStorage.getItem("groceryList_v1") || localStorage.getItem("groceryList");
       if (rawV1) {
-        const v1 = JSON.parse(rawV1).map((i) => ({
-          id: i.id || crypto.randomUUID(),
-          text: i.text,
-          checked: !!i.checked || !!i.done,
-          category: i.category || "Other",
-          qty: i.qty || 1,
-        }));
-        return v1;
+        const arr = JSON.parse(rawV1);
+        if (Array.isArray(arr)) {
+          return arr.map(i => ({
+            id: i.id || (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random())),
+            text: i.text,
+            checked: !!i.checked || !!i.done,
+            category: i.category || "Other",
+            qty: i.qty || 1
+          }));
+        }
       }
     } catch {}
     return DEFAULT_ITEMS;
@@ -39,75 +38,85 @@ export default function GroceryListApp() {
   const [hideChecked, setHideChecked] = useState(false);
   const [q, setQ] = useState("");
   const [catFilter, setCatFilter] = useState("All");
-  const [editingId, setEditingId] = useState(null as string | null);
+  const [editingId, setEditingId] = useState(null);
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef(null);
 
-  // ---- Persistence ----
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
   }, [items]);
 
-  // ---- Derived ----
   const filtered = useMemo(() => {
     let arr = items;
-    if (hideChecked) arr = arr.filter((i) => !i.checked);
-    if (catFilter !== "All") arr = arr.filter((i) => (i.category || "Other") === catFilter);
+    if (hideChecked) arr = arr.filter(i => !i.checked);
+    if (catFilter !== "All") arr = arr.filter(i => (i.category || "Other") === catFilter);
     if (q.trim()) {
       const s = q.toLowerCase();
-      arr = arr.filter((i) => i.text.toLowerCase().includes(s));
+      arr = arr.filter(i => i.text.toLowerCase().includes(s));
     }
     return arr;
   }, [items, hideChecked, q, catFilter]);
 
-  const remaining = items.filter((i) => !i.checked).length;
+  const remaining = items.filter(i => !i.checked).length;
 
   const groups = useMemo(() => {
-    return filtered.reduce((acc: Record<string, any[]>, it) => {
+    return filtered.reduce((acc, it) => {
       const key = it.category || "Other";
-      (acc[key] ||= []).push(it);
+      (acc[key] = acc[key] || []).push(it);
       return acc;
     }, {});
   }, [filtered]);
 
-  // ---- Actions ----
   function addItem() {
     const t = text.trim();
     if (!t) return;
-    setItems((prev) => [
+    setItems(prev => [
       ...prev,
-      { id: crypto.randomUUID(), text: t, checked: false, category: category || "Other", qty: Math.max(1, qty | 0) },
+      {
+        id: globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+        text: t,
+        checked: false,
+        category: category || "Other",
+        qty: Math.max(1, Number(qty) || 1)
+      }
     ]);
     setText("");
     setQty(1);
     setCategory("Other");
-    inputRef.current?.focus();
+    if (inputRef.current) inputRef.current.focus();
   }
-  function toggle(id: string) {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i)));
+
+  function toggle(id) {
+    setItems(prev => prev.map(i => (i.id === id ? { ...i, checked: !i.checked } : i)));
   }
-  function removeItem(id: string) {
-    setItems((prev) => prev.filter((i) => i.id !== id));
+
+  function removeItem(id) {
+    setItems(prev => prev.filter(i => i.id !== id));
   }
+
   function clearChecked() {
-    setItems((prev) => prev.filter((i) => !i.checked));
+    setItems(prev => prev.filter(i => !i.checked));
   }
+
   function resetList() {
     setItems(DEFAULT_ITEMS);
   }
-  function incQty(id: string, d = 1) {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, qty: Math.max(1, (i.qty || 1) + d) } : i)));
+
+  function incQty(id, d = 1) {
+    setItems(prev => prev.map(i => (i.id === id ? { ...i, qty: Math.max(1, (i.qty || 1) + d) } : i)));
   }
-  function startEdit(id: string) {
+
+  function startEdit(id) {
     setEditingId(id);
   }
-  function saveEdit(id: string, newText: string) {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, text: newText.trim() || i.text } : i)));
+
+  function saveEdit(id, newText) {
+    setItems(prev => prev.map(i => (i.id === id ? { ...i, text: (newText || "").trim() || i.text } : i)));
     setEditingId(null);
   }
 
   async function shareList() {
-    const lines = items.filter((i) => !i.checked).map((i) => `• ${i.text}${i.qty > 1 ? ` x${i.qty}` : ""}`);
+    const lines = items.filter(i => !i.checked).map(i => `• ${i.text}${(i.qty || 1) > 1 ? " x" + (i.qty || 1) : ""}`);
     const body = lines.join("\n") || "(All done!)";
     if (navigator.share) {
       try { await navigator.share({ title: "Grocery List", text: body }); } catch {}
@@ -120,12 +129,14 @@ export default function GroceryListApp() {
     const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "grocery-list.json"; a.click();
+    a.href = url;
+    a.download = "grocery-list.json";
+    a.click();
     URL.revokeObjectURL(url);
   }
 
-  function importJSON(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  function importJSON(e) {
+    const file = e.target.files && e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
@@ -138,10 +149,8 @@ export default function GroceryListApp() {
     reader.readAsText(file);
   }
 
-  // ---- UI ----
   return (
     <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-white text-neutral-900">
-      {/* Header */}
       <div className="sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-white/60 bg-white/80 border-b border-neutral-100">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
@@ -159,44 +168,40 @@ export default function GroceryListApp() {
         </div>
       </div>
 
-      {/* Main */}
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* Add bar */}
         <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-3">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex-1 min-w-[180px]">
-              <input ref={inputRef} value={text} onChange={(e)=>setText(e.target.value)} onKeyDown={(e)=>e.key==='Enter' && addItem()} placeholder="Add an item…" className="w-full rounded-xl border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rose-300"/>
+              <input ref={inputRef} value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter' && addItem()} placeholder="Add an item…" className="w-full rounded-xl border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rose-300"/>
             </div>
             <div className="flex items-center gap-2">
-              <select value={category} onChange={(e)=>setCategory(e.target.value)} className="rounded-xl border border-neutral-300 px-3 py-2">
-                {CATEGORIES.filter(c=>c!=="All").map((c)=> <option key={c} value={c}>{c}</option>)}
+              <select value={category} onChange={e=>setCategory(e.target.value)} className="rounded-xl border border-neutral-300 px-3 py-2">
+                {CATEGORIES.filter(c=>c!=="All").map(c=> <option key={c} value={c}>{c}</option>)}
               </select>
               <div className="flex items-center border border-neutral-300 rounded-xl overflow-hidden">
-                <button onClick={()=>setQty(q=>Math.max(1,q-1))} className="px-3 py-2">-</button>
+                <button onClick={()=>setQty(prev=>Math.max(1,prev-1))} className="px-3 py-2">-</button>
                 <span className="px-3 py-2 text-sm w-8 text-center">{qty}</span>
-                <button onClick={()=>setQty(q=>q+1)} className="px-3 py-2">+</button>
+                <button onClick={()=>setQty(prev=>prev+1)} className="px-3 py-2">+</button>
               </div>
               <button onClick={addItem} className="rounded-xl px-4 py-2 bg-rose-600 text-white shadow hover:bg-rose-700 active:scale-95 flex items-center gap-2"><Plus size={16}/>Add</button>
             </div>
           </div>
-          {/* Quick add chips */}
           <div className="mt-3 flex flex-wrap gap-2 text-sm">
-            {["Unsalted butter (120 g)", "Kinder Chocolate", "Parchment paper", "Small Ziplock bags"].map((s)=> (
+            {["Unsalted butter (120 g)", "Kinder Chocolate", "Parchment paper", "Small Ziplock bags"].map(s => (
               <button key={s} onClick={()=>{setText(s); setCategory(s.includes("Chocolate")?"Chocolate": s.includes("paper")?"Supplies":"Other"); setQty(1);}} className="px-3 py-1 rounded-full border border-neutral-300 bg-white hover:bg-neutral-50">{s}</button>
             ))}
           </div>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200 shadow-sm flex-1 min-w-[200px]">
             <Search size={16} className="text-neutral-500"/>
-            <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Search" className="flex-1 outline-none"/>
+            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search" className="flex-1 outline-none"/>
           </div>
           <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200 shadow-sm">
             <Filter size={16} className="text-neutral-500"/>
-            <select value={catFilter} onChange={(e)=>setCatFilter(e.target.value)} className="bg-transparent outline-none">
-              {CATEGORIES.map((c)=> <option key={c} value={c}>{c}</option>)}
+            <select value={catFilter} onChange={e=>setCatFilter(e.target.value)} className="bg-transparent outline-none">
+              {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <button onClick={()=>setHideChecked(v=>!v)} className="px-3 py-2 rounded-xl border border-neutral-200 bg-white shadow-sm">{hideChecked?"Show checked":"Hide checked"}</button>
@@ -204,14 +209,13 @@ export default function GroceryListApp() {
           <button onClick={resetList} className="px-3 py-2 rounded-xl border border-neutral-200 bg-white shadow-sm">Reset</button>
         </div>
 
-        {/* List */}
         <div className="space-y-5">
           {Object.entries(groups).map(([cat, arr]) => (
             <div key={cat}>
               {cat !== "Other" && <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">{cat}</h2>}
               <ul className="space-y-2">
                 <AnimatePresence initial={false}>
-                  {arr.map((i) => (
+                  {arr.map(i => (
                     <motion.li
                       key={i.id}
                       initial={{ opacity: 0, y: 6 }}
@@ -220,19 +224,17 @@ export default function GroceryListApp() {
                       className="flex items-center gap-3 bg-white rounded-2xl shadow-sm border border-neutral-200 p-3"
                     >
                       <input type="checkbox" className="h-5 w-5" checked={!!i.checked} onChange={()=>toggle(i.id)} />
-
                       {editingId === i.id ? (
                         <input
                           autoFocus
                           defaultValue={i.text}
-                          onBlur={(e)=>saveEdit(i.id, e.currentTarget.value)}
-                          onKeyDown={(e)=>{ if(e.key==='Enter') (e.target as HTMLInputElement).blur(); if(e.key==='Escape') setEditingId(null); }}
+                          onBlur={e=>saveEdit(i.id, e.currentTarget.value)}
+                          onKeyDown={e=>{ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape') setEditingId(null); }}
                           className="flex-1 px-2 py-1 border border-neutral-300 rounded-lg"
                         />
                       ) : (
                         <span className={"flex-1 text-base " + (i.checked ? "line-through text-neutral-400" : "")}>{i.text}</span>
                       )}
-
                       <div className="flex items-center gap-2">
                         <div className="flex items-center border border-neutral-300 rounded-xl overflow-hidden">
                           <button onClick={()=>incQty(i.id,-1)} className="px-2 py-1">-</button>
