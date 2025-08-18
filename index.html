@@ -1,241 +1,261 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grocery List</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-rose-50 via-white to-white text-neutral-900">
+  <div id="root"></div>
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect, useMemo, useRef } = React;
 
-export default function App() {
-  const STORAGE_KEY = "groceryList_v3";
-  const DEFAULT_ITEMS = [
-    { id: "butter", text: "Unsalted butter (120 g)", checked: false, category: "Baking", qty: 1 },
-    { id: "kinder", text: "Kinder Chocolate", checked: false, category: "Chocolate", qty: 1 },
-    { id: "parchment", text: "Parchment paper", checked: false, category: "Supplies", qty: 1 },
-    { id: "ziplock", text: "Small Ziplock bags", checked: false, category: "Supplies", qty: 1 }
-  ];
-  const CATEGORIES = ["All", "Baking", "Produce", "Dairy", "Meat", "Pantry", "Chocolate", "Supplies", "Other"];
+    function App() {
+      const STORAGE_KEY = "groceryList_v3";
+      const DEFAULT_ITEMS = [
+        { id: "butter", text: "Unsalted butter (120 g)", checked: false, category: "Baking", qty: 1 },
+        { id: "kinder", text: "Kinder Chocolate", checked: false, category: "Chocolate", qty: 1 },
+        { id: "parchment", text: "Parchment paper", checked: false, category: "Supplies", qty: 1 },
+        { id: "ziplock", text: "Small Ziplock bags", checked: false, category: "Supplies", qty: 1 }
+      ];
+      const CATEGORIES = ["All", "Baking", "Produce", "Dairy", "Meat", "Pantry", "Chocolate", "Supplies", "Other"];
 
-  const [items, setItems] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return DEFAULT_ITEMS.map(o => ({ ...o }));
-  });
-  const [text, setText] = useState("");
-  const [qty, setQty] = useState(1);
-  const [category, setCategory] = useState("Other");
-  const [hideChecked, setHideChecked] = useState(false);
-  const [q, setQ] = useState("");
-  const [catFilter, setCatFilter] = useState("All");
-  const [editingId, setEditingId] = useState(null);
-  const inputRef = useRef(null);
+      const [items, setItems] = useState(() => {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) return JSON.parse(raw);
+        } catch {}
+        return DEFAULT_ITEMS.map(o => ({ ...o }));
+      });
+      const [text, setText] = useState("");
+      const [qty, setQty] = useState(1);
+      const [category, setCategory] = useState("Other");
+      const [hideChecked, setHideChecked] = useState(false);
+      const [q, setQ] = useState("");
+      const [catFilter, setCatFilter] = useState("All");
+      const [editingId, setEditingId] = useState(null);
+      const inputRef = useRef(null);
 
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
-  }, [items]);
+      useEffect(() => {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
+      }, [items]);
 
-  const filtered = useMemo(() => {
-    let arr = items;
-    if (hideChecked) arr = arr.filter(i => !i.checked);
-    if (catFilter !== "All") arr = arr.filter(i => (i.category || "Other") === catFilter);
-    if (q.trim()) {
-      const s = q.toLowerCase();
-      arr = arr.filter(i => (i.text || "").toLowerCase().includes(s));
-    }
-    return arr;
-  }, [items, hideChecked, q, catFilter]);
-
-  const remaining = items.filter(i => !i.checked).length;
-
-  const groups = useMemo(() => {
-    return filtered.reduce((acc, it) => {
-      const key = it.category || "Other";
-      (acc[key] = acc[key] || []).push(it);
-      return acc;
-    }, {});
-  }, [filtered]);
-
-  function newId() {
-    try { return crypto.randomUUID(); } catch { return String(Date.now() + Math.random()); }
-  }
-
-  function addItem() {
-    const t = text.trim();
-    if (!t) return;
-    setItems(prev => [
-      ...prev,
-      { id: newId(), text: t, checked: false, category: category || "Other", qty: Math.max(1, Number(qty) || 1) }
-    ]);
-    setText("");
-    setQty(1);
-    setCategory("Other");
-    if (inputRef.current) inputRef.current.focus();
-  }
-
-  function toggle(id) {
-    setItems(prev => prev.map(i => (i.id === id ? { ...i, checked: !i.checked } : i)));
-  }
-
-  function removeItem(id) {
-    setItems(prev => prev.filter(i => i.id !== id));
-  }
-
-  function clearChecked() {
-    setItems(prev => prev.filter(i => !i.checked));
-  }
-
-  function resetList() {
-    setItems(DEFAULT_ITEMS.map(o => ({ ...o })));
-  }
-
-  function incQty(id, d) {
-    setItems(prev => prev.map(i => (i.id === id ? { ...i, qty: Math.max(1, (i.qty || 1) + (typeof d === "number" ? d : 1)) } : i)));
-  }
-
-  function startEdit(id) {
-    setEditingId(id);
-  }
-
-  function saveEdit(id, newText) {
-    setItems(prev => prev.map(i => (i.id === id ? { ...i, text: (newText || "").trim() || i.text } : i)));
-    setEditingId(null);
-  }
-
-  async function shareList() {
-    const lines = items.filter(i => !i.checked).map(i => `• ${(i.text || "").trim()}${(i.qty || 1) > 1 ? " x" + (i.qty || 1) : ""}`);
-    const body = lines.join("\n") || "(All done!)";
-    if (navigator.share) {
-      try { await navigator.share({ title: "Grocery List", text: body }); } catch {}
-    } else if (navigator.clipboard) {
-      try { await navigator.clipboard.writeText(body); } catch {}
-    }
-  }
-
-  function exportJSON() {
-    const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "grocery-list.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function importJSON(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(String(reader.result));
-        if (Array.isArray(data)) {
-          const sanitized = data.map(x => ({
-            id: x && x.id ? String(x.id) : newId(),
-            text: x && x.text ? String(x.text) : "",
-            checked: !!(x && x.checked),
-            category: x && x.category ? String(x.category) : "Other",
-            qty: Math.max(1, Number(x && x.qty) || 1)
-          })).filter(x => x.text.trim().length > 0);
-          setItems(sanitized.length ? sanitized : DEFAULT_ITEMS.map(o => ({ ...o })));
+      const filtered = useMemo(() => {
+        let arr = items;
+        if (hideChecked) arr = arr.filter(i => !i.checked);
+        if (catFilter !== "All") arr = arr.filter(i => (i.category || "Other") === catFilter);
+        if (q.trim()) {
+          const s = q.toLowerCase();
+          arr = arr.filter(i => (i.text || "").toLowerCase().includes(s));
         }
-      } catch {}
-      e.target.value = "";
-    };
-    reader.readAsText(file);
-  }
+        return arr;
+      }, [items, hideChecked, q, catFilter]);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-white text-neutral-900">
-      <div className="sticky top-0 z-10 bg-white/80 border-b border-neutral-100 backdrop-blur">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Grocery List</h1>
-            <p className="text-xs text-neutral-500">{items.length - remaining} checked • {remaining} to go</p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={shareList} className="rounded-xl px-3 py-2 border border-neutral-200 bg-white shadow-sm">Share</button>
-            <button onClick={exportJSON} className="rounded-xl px-3 py-2 border border-neutral-200 bg-white shadow-sm">Export</button>
-            <label className="rounded-xl px-3 py-2 border border-neutral-200 bg-white shadow-sm cursor-pointer">
-              Import<input type="file" accept="application/json" className="hidden" onChange={importJSON} />
-            </label>
-          </div>
-        </div>
-      </div>
+      const remaining = items.filter(i => !i.checked).length;
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex-1 min-w-[180px]">
-              <input ref={inputRef} value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter' && addItem()} placeholder="Add an item…" className="w-full rounded-xl border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rose-300"/>
-            </div>
-            <div className="flex items-center gap-2">
-              <select value={category} onChange={e=>setCategory(e.target.value)} className="rounded-xl border border-neutral-300 px-3 py-2">
-                {CATEGORIES.filter(c=>c!=="All").map(c=> <option key={c} value={c}>{c}</option>)}
-              </select>
-              <div className="flex items-center border border-neutral-300 rounded-xl overflow-hidden">
-                <button onClick={()=>setQty(prev=>Math.max(1,prev-1))} className="px-3 py-2">-</button>
-                <span className="px-3 py-2 text-sm w-8 text-center">{qty}</span>
-                <button onClick={()=>setQty(prev=>prev+1)} className="px-3 py-2">+</button>
+      const groups = useMemo(() => {
+        return filtered.reduce((acc, it) => {
+          const key = it.category || "Other";
+          (acc[key] = acc[key] || []).push(it);
+          return acc;
+        }, {});
+      }, [filtered]);
+
+      function newId() {
+        try { return crypto.randomUUID(); } catch { return String(Date.now() + Math.random()); }
+      }
+
+      function addItem() {
+        const t = text.trim();
+        if (!t) return;
+        setItems(prev => [
+          ...prev,
+          { id: newId(), text: t, checked: false, category: category || "Other", qty: Math.max(1, Number(qty) || 1) }
+        ]);
+        setText("");
+        setQty(1);
+        setCategory("Other");
+        if (inputRef.current) inputRef.current.focus();
+      }
+
+      function toggle(id) {
+        setItems(prev => prev.map(i => (i.id === id ? { ...i, checked: !i.checked } : i)));
+      }
+
+      function removeItem(id) {
+        setItems(prev => prev.filter(i => i.id !== id));
+      }
+
+      function clearChecked() {
+        setItems(prev => prev.filter(i => !i.checked));
+      }
+
+      function resetList() {
+        setItems(DEFAULT_ITEMS.map(o => ({ ...o })));
+      }
+
+      function incQty(id, d) {
+        setItems(prev => prev.map(i => (i.id === id ? { ...i, qty: Math.max(1, (i.qty || 1) + (typeof d === "number" ? d : 1)) } : i)));
+      }
+
+      function startEdit(id) {
+        setEditingId(id);
+      }
+
+      function saveEdit(id, newText) {
+        setItems(prev => prev.map(i => (i.id === id ? { ...i, text: (newText || "").trim() || i.text } : i)));
+        setEditingId(null);
+      }
+
+      async function shareList() {
+        const lines = items.filter(i => !i.checked).map(i => `• ${(i.text || "").trim()}${(i.qty || 1) > 1 ? " x" + (i.qty || 1) : ""}`);
+        const body = lines.join("\n") || "(All done!)";
+        if (navigator.share) {
+          try { await navigator.share({ title: "Grocery List", text: body }); } catch {}
+        } else if (navigator.clipboard) {
+          try { await navigator.clipboard.writeText(body); alert("List copied to clipboard"); } catch {}
+        }
+      }
+
+      function exportJSON() {
+        const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "grocery-list.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function importJSON(e) {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const data = JSON.parse(String(reader.result));
+            if (Array.isArray(data)) {
+              const sanitized = data.map(x => ({
+                id: x && x.id ? String(x.id) : newId(),
+                text: x && x.text ? String(x.text) : "",
+                checked: !!(x && x.checked),
+                category: x && x.category ? String(x.category) : "Other",
+                qty: Math.max(1, Number(x && x.qty) || 1)
+              })).filter(x => x.text.trim().length > 0);
+              setItems(sanitized.length ? sanitized : DEFAULT_ITEMS.map(o => ({ ...o })));
+            }
+          } catch {}
+          e.target.value = "";
+        };
+        reader.readAsText(file);
+      }
+
+      return (
+        <div>
+          <div className="sticky top-0 z-10 bg-white/80 border-b border-neutral-100 backdrop-blur">
+            <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">Grocery List</h1>
+                <p className="text-xs text-neutral-500">{items.length - remaining} checked • {remaining} to go</p>
               </div>
-              <button onClick={addItem} className="rounded-xl px-4 py-2 bg-rose-600 text-white shadow hover:bg-rose-700 active:scale-95">Add</button>
+              <div className="flex gap-2">
+                <button onClick={shareList} className="rounded-xl px-3 py-2 border border-neutral-200 bg-white shadow-sm">Share</button>
+                <button onClick={exportJSON} className="rounded-xl px-3 py-2 border border-neutral-200 bg-white shadow-sm">Export</button>
+                <label className="rounded-xl px-3 py-2 border border-neutral-200 bg-white shadow-sm cursor-pointer">
+                  Import<input type="file" accept="application/json" className="hidden" onChange={importJSON} />
+                </label>
+              </div>
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-sm">
-            {["Unsalted butter (120 g)", "Kinder Chocolate", "Parchment paper", "Small Ziplock bags"].map(s => (
-              <button key={s} onClick={()=>{setText(s); setCategory(s.indexOf("Chocolate")>-1?"Chocolate": s.indexOf("paper")>-1?"Supplies":"Other"); setQty(1);}} className="px-3 py-1 rounded-full border border-neutral-300 bg-white hover:bg-neutral-50">{s}</button>
-            ))}
-          </div>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200 shadow-sm flex-1 min-w-[200px]">
-            <span className="text-neutral-500">🔎</span>
-            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search" className="flex-1 outline-none"/>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200 shadow-sm">
-            <span className="text-neutral-500">⚙️</span>
-            <select value={catFilter} onChange={e=>setCatFilter(e.target.value)} className="bg-transparent outline-none">
-              {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <button onClick={()=>setHideChecked(v=>!v)} className="px-3 py-2 rounded-xl border border-neutral-200 bg-white shadow-sm">{hideChecked?"Show checked":"Hide checked"}</button>
-          <button onClick={clearChecked} className="px-3 py-2 rounded-xl border border-neutral-200 bg-white shadow-sm">Clear checked</button>
-          <button onClick={resetList} className="px-3 py-2 rounded-xl border border-neutral-200 bg-white shadow-sm">Reset</button>
-        </div>
-
-        <div className="space-y-5">
-          {Object.entries(groups).map(([cat, arr]) => (
-            <div key={cat}>
-              {cat !== "Other" && <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">{cat}</h2>}
-              <ul className="space-y-2">
-                {arr.map(i => (
-                  <li key={i.id} className="flex items-center gap-3 bg-white rounded-2xl shadow-sm border border-neutral-200 p-3">
-                    <input type="checkbox" className="h-5 w-5" checked={!!i.checked} onChange={()=>toggle(i.id)} />
-                    {editingId === i.id ? (
-                      <input
-                        autoFocus
-                        defaultValue={i.text}
-                        onBlur={e=>saveEdit(i.id, e.currentTarget.value)}
-                        onKeyDown={e=>{ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape') setEditingId(null); }}
-                        className="flex-1 px-2 py-1 border border-neutral-300 rounded-lg"
-                      />
-                    ) : (
-                      <span className={"flex-1 text-base " + (i.checked ? "line-through text-neutral-400" : "")}>{i.text}</span>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center border border-neutral-300 rounded-xl overflow-hidden">
-                        <button onClick={()=>incQty(i.id,-1)} className="px-2 py-1">-</button>
-                        <span className="px-2 w-8 text-center text-sm">{i.qty || 1}</span>
-                        <button onClick={()=>incQty(i.id,1)} className="px-2 py-1">+</button>
-                      </div>
-                      <button onClick={()=>startEdit(i.id)} className="p-2 rounded-lg border border-neutral-200 bg-white">✏️</button>
-                      <button onClick={()=>removeItem(i.id)} className="p-2 rounded-lg border border-neutral-200 bg-white text-rose-600">🗑️</button>
-                    </div>
-                  </li>
+          <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex-1 min-w-[180px]">
+                  <input ref={inputRef} value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter' && addItem()} placeholder="Add an item…" className="w-full rounded-xl border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rose-300"/>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select value={category} onChange={e=>setCategory(e.target.value)} className="rounded-xl border border-neutral-300 px-3 py-2">
+                    {CATEGORIES.filter(c=>c!=="All").map(c=> <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <div className="flex items-center border border-neutral-300 rounded-xl overflow-hidden">
+                    <button onClick={()=>setQty(prev=>Math.max(1,prev-1))} className="px-3 py-2">-</button>
+                    <span className="px-3 py-2 text-sm w-8 text-center">{qty}</span>
+                    <button onClick={()=>setQty(prev=>prev+1)} className="px-3 py-2">+</button>
+                  </div>
+                  <button onClick={addItem} className="rounded-xl px-4 py-2 bg-rose-600 text-white shadow hover:bg-rose-700 active:scale-95">Add</button>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                {["Unsalted butter (120 g)", "Kinder Chocolate", "Parchment paper", "Small Ziplock bags"].map(s => (
+                  <button key={s} onClick={()=>{setText(s); setCategory(s.indexOf("Chocolate")>-1?"Chocolate": s.indexOf("paper")>-1?"Supplies":"Other"); setQty(1);}} className="px-3 py-1 rounded-full border border-neutral-300 bg-white hover:bg-neutral-50">{s}</button>
                 ))}
-              </ul>
+              </div>
             </div>
-          ))}
-        </div>
 
-        <p className="text-xs text-neutral-500">Auto‑saves on this device. Share/export for backup.</p>
-      </div>
-    </div>
-  );
-}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200 shadow-sm flex-1 min-w-[200px]">
+                <span className="text-neutral-500">🔎</span>
+                <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search" className="flex-1 outline-none"/>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200 shadow-sm">
+                <span className="text-neutral-500">⚙️</span>
+                <select value={catFilter} onChange={e=>setCatFilter(e.target.value)} className="bg-transparent outline-none">
+                  {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <button onClick={()=>setHideChecked(v=>!v)} className="px-3 py-2 rounded-xl border border-neutral-200 bg-white shadow-sm">{hideChecked?"Show checked":"Hide checked"}</button>
+              <button onClick={clearChecked} className="px-3 py-2 rounded-xl border border-neutral-200 bg-white shadow-sm">Clear checked</button>
+              <button onClick={resetList} className="px-3 py-2 rounded-xl border border-neutral-200 bg-white shadow-sm">Reset</button>
+            </div>
+
+            <div className="space-y-5">
+              {Object.entries(groups).map(([cat, arr]) => (
+                <div key={cat}>
+                  {cat !== "Other" && <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">{cat}</h2>}
+                  <ul className="space-y-2">
+                    {arr.map(i => (
+                      <li key={i.id} className="flex items-center gap-3 bg-white rounded-2xl shadow-sm border border-neutral-200 p-3">
+                        <input type="checkbox" className="h-5 w-5" checked={!!i.checked} onChange={()=>toggle(i.id)} />
+                        {editingId === i.id ? (
+                          <input
+                            autoFocus
+                            defaultValue={i.text}
+                            onBlur={e=>saveEdit(i.id, e.currentTarget.value)}
+                            onKeyDown={e=>{ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape') setEditingId(null); }}
+                            className="flex-1 px-2 py-1 border border-neutral-300 rounded-lg"
+                          />
+                        ) : (
+                          <span className={"flex-1 text-base " + (i.checked ? "line-through text-neutral-400" : "")}>{i.text}</span>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center border border-neutral-300 rounded-xl overflow-hidden">
+                            <button onClick={()=>incQty(i.id,-1)} className="px-2 py-1">-</button>
+                            <span className="px-2 w-8 text-center text-sm">{i.qty || 1}</span>
+                            <button onClick={()=>incQty(i.id,1)} className="px-2 py-1">+</button>
+                          </div>
+                          <button onClick={()=>startEdit(i.id)} className="p-2 rounded-lg border border-neutral-200 bg-white">✏️</button>
+                          <button onClick={()=>removeItem(i.id)} className="p-2 rounded-lg border border-neutral-200 bg-white text-rose-600">🗑️</button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-neutral-500">Auto‑saves on this device. Share/export for backup.</p>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
